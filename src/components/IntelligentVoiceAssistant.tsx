@@ -181,7 +181,7 @@ export const IntelligentVoiceAssistant = () => {
 
   const generateResponse = async (userInput: string) => {
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       
       // Create context-aware prompt
       const context = conversationHistory.current;
