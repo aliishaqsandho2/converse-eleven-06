@@ -695,7 +695,7 @@ const Customers = () => {
 const CustomerDialog = ({ onSubmit, onClose }: { onSubmit: (data: any) => void; onClose: () => void }) => {
   const [formData, setFormData] = useState({
     name: "", 
-    phone: "", 
+    phone: "+92", 
     email: "", 
     address: "", 
     city: "",
@@ -705,12 +705,21 @@ const CustomerDialog = ({ onSubmit, onClose }: { onSubmit: (data: any) => void; 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.name.trim()) {
+      return;
+    }
+    
+    if (!formData.phone.trim() || formData.phone.trim() === "+92") {
+      return;
+    }
+    
     onSubmit({
       ...formData,
       creditLimit: parseFloat(formData.creditLimit) || 0
     });
     setFormData({ 
-      name: "", phone: "", email: "", address: "", city: "", type: "Permanent", creditLimit: "" 
+      name: "", phone: "+92", email: "", address: "", city: "", type: "Permanent", creditLimit: "" 
     });
   };
 
@@ -722,7 +731,7 @@ const CustomerDialog = ({ onSubmit, onClose }: { onSubmit: (data: any) => void; 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="name">Customer Name</Label>
+            <Label htmlFor="name">Customer Name *</Label>
             <Input
               id="name"
               value={formData.name}
@@ -731,12 +740,20 @@ const CustomerDialog = ({ onSubmit, onClose }: { onSubmit: (data: any) => void; 
             />
           </div>
           <div>
-            <Label htmlFor="phone">Phone Number (Optional)</Label>
+            <Label htmlFor="phone">Phone Number *</Label>
             <Input
               id="phone"
               value={formData.phone}
-              onChange={(e) => setFormData({...formData, phone: e.target.value})}
-              placeholder="Enter phone number (optional)"
+              onChange={(e) => {
+                const value = e.target.value;
+                if (!value.startsWith("+92")) {
+                  setFormData({...formData, phone: "+92"});
+                } else {
+                  setFormData({...formData, phone: value});
+                }
+              }}
+              placeholder="+92XXXXXXXXXX"
+              required
             />
           </div>
         </div>
@@ -796,7 +813,13 @@ const CustomerDialog = ({ onSubmit, onClose }: { onSubmit: (data: any) => void; 
         </div>
 
         <div className="flex gap-2 pt-4">
-          <Button type="submit" className="flex-1">Add Customer</Button>
+          <Button 
+            type="submit" 
+            className="flex-1"
+            disabled={!formData.name.trim() || !formData.phone.trim() || formData.phone.trim() === "+92"}
+          >
+            Add Customer
+          </Button>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
         </div>
       </form>

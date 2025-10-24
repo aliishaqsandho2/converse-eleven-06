@@ -223,14 +223,6 @@ const Credits = () => {
           <p className="text-muted-foreground">Manage and track customer outstanding balances</p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={handleSyncBalances}
-            disabled={isSyncing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-            Sync Balances
-          </Button>
           <Dialog open={isAddCreditToExistingOpen} onOpenChange={setIsAddCreditToExistingOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="bg-orange-50 hover:bg-orange-100 text-orange-600 border-orange-200">
@@ -495,20 +487,29 @@ const Credits = () => {
 const CustomerDialog = ({ onSubmit, onClose }: { onSubmit: (data: any) => void; onClose: () => void }) => {
   const [formData, setFormData] = useState({
     name: "", 
-    phone: "", 
+    phone: "+92", 
     initialCredit: ""
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.name.trim()) {
+      return;
+    }
+    
+    if (!formData.phone.trim() || formData.phone.trim() === "+92") {
+      return;
+    }
+    
     onSubmit({
       name: formData.name,
-      phone: formData.phone || "N/A",
+      phone: formData.phone,
       type: "Temporary",
       creditLimit: 0,
       initialCredit: parseFloat(formData.initialCredit) || 0
     });
-    setFormData({ name: "", phone: "", initialCredit: "" });
+    setFormData({ name: "", phone: "+92", initialCredit: "" });
   };
 
   return (
@@ -530,12 +531,20 @@ const CustomerDialog = ({ onSubmit, onClose }: { onSubmit: (data: any) => void; 
         </div>
         
         <div>
-          <Label htmlFor="phone">Phone Number</Label>
+          <Label htmlFor="phone">Phone Number *</Label>
           <Input
             id="phone"
             value={formData.phone}
-            onChange={(e) => setFormData({...formData, phone: e.target.value})}
-            placeholder="Enter phone number (optional)"
+            onChange={(e) => {
+              const value = e.target.value;
+              if (!value.startsWith("+92")) {
+                setFormData({...formData, phone: "+92"});
+              } else {
+                setFormData({...formData, phone: value});
+              }
+            }}
+            placeholder="+92XXXXXXXXXX"
+            required
           />
         </div>
 
@@ -556,7 +565,11 @@ const CustomerDialog = ({ onSubmit, onClose }: { onSubmit: (data: any) => void; 
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+          <Button 
+            type="submit" 
+            className="bg-blue-600 hover:bg-blue-700"
+            disabled={!formData.name.trim() || !formData.phone.trim() || formData.phone.trim() === "+92"}
+          >
             Add Customer
           </Button>
         </div>
