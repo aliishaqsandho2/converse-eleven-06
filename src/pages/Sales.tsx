@@ -193,7 +193,8 @@ const formatPakistaniTime = (timeString: string): string => {
 
   const fetchCustomers = async () => {
     try {
-      const response = await customersApi.getAll({ limit: 100 });
+      // Fetch all customers without limit for comprehensive search
+      const response = await customersApi.getAll({ limit: 10000 });
       if (response.success) {
         const customersData = response.data?.customers || response.data || [];
         setCustomers(Array.isArray(customersData) ? customersData : []);
