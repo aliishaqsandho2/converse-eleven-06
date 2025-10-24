@@ -39,9 +39,9 @@ const Credits = () => {
   const fetchAllCustomers = useCallback(async () => {
     try {
       setLoading(true);
-      // Use backend endpoint that returns customers with credit balances
+      // Fetch ALL customers (increased limit to get all customers)
       const response = await customersApi.getCreditCustomers({
-        per_page: 100,
+        per_page: 10000,
         page: 1,
         status: 'active'
       });
@@ -645,7 +645,7 @@ const AddCreditToExistingDialog = ({
                           customer.email?.toLowerCase().includes(query)
                         );
                       })
-                      .slice(0, 50) // Limit to 50 results for performance
+                      .slice(0, 100) // Show top 100 results
                       .map((customer: any) => (
                         <CommandItem
                           key={customer.id}
@@ -692,9 +692,9 @@ const AddCreditToExistingDialog = ({
               </Command>
             </PopoverContent>
           </Popover>
-          {searchQuery && !open && (
+          {safeCustomers.length > 100 && (
             <p className="text-xs text-muted-foreground">
-              Showing top 50 results. Keep typing to refine your search.
+              Showing top 100 results. Keep typing to refine your search.
             </p>
           )}
         </div>
