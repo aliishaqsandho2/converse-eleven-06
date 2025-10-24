@@ -13,6 +13,7 @@ import { customersApi } from "@/services/api";
 import { useCustomerBalance } from "@/hooks/useCustomerBalance";
 import { format } from "date-fns";
 
+
 const Credits = () => {
   const { toast } = useToast();
   const { getCustomerBalance, recordManualPayment, getTransactionHistory, syncAllCustomerBalances } = useCustomerBalance();
