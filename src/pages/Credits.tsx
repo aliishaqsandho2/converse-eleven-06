@@ -7,12 +7,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CreditCard, Search, Plus, Users, AlertCircle, Phone, Mail, MapPin, DollarSign, History, MessageCircle, RefreshCw } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CreditCard, Search, Plus, Users, AlertCircle, Phone, Mail, MapPin, DollarSign, History, MessageCircle, RefreshCw, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { customersApi } from "@/services/api";
 import { useCustomerBalance } from "@/hooks/useCustomerBalance";
 import { format } from "date-fns";
-
 
 const Credits = () => {
   const { toast } = useToast();
@@ -32,12 +34,15 @@ const Credits = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [messageText, setMessageText] = useState("");
+  const [isAddCreditToExistingOpen, setIsAddCreditToExistingOpen] = useState(false);
 
   const fetchAllCustomers = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await customersApi.getAll({
-        limit: 1000,
+      // Use backend endpoint that returns customers with credit balances
+      const response = await customersApi.getCreditCustomers({
+        per_page: 100,
+        page: 1,
         status: 'active'
       });
       
@@ -45,8 +50,8 @@ const Credits = () => {
         const allCustomers = response.data?.customers || [];
         setCustomers(allCustomers);
         
-        // Filter customers with credits (negative balance means they owe money)
-       const withCredits = allCustomers.filter((c: any) => (c.currentBalance || 0) !== 0);
+        // Include any non-zero balances (negative = due, positive = advance)
+        const withCredits = allCustomers.filter((c: any) => (c.currentBalance ?? 0) !== 0);
         setCustomersWithCredits(withCredits);
       }
     } catch (error) {
@@ -70,11 +75,22 @@ const Credits = () => {
       const response = await customersApi.create(formData);
       
       if (response.success) {
+        // If there's an initial credit, add it
+        if (formData.initialCredit && formData.initialCredit > 0) {
+          await recordManualPayment(
+            response.data.id,
+            -formData.initialCredit, // Negative to increase balance
+            'credit',
+            undefined,
+            'Initial credit balance'
+          );
+        }
+        
         setIsAddCustomerOpen(false);
         fetchAllCustomers();
         toast({
           title: "Customer Added",
-          description: "New customer has been added successfully.",
+          description: `${formData.name} has been added successfully${formData.initialCredit ? ' with initial credit' : ''}.`,
         });
       } else {
         toast({
@@ -90,6 +106,16 @@ const Credits = () => {
         description: "Failed to add customer",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleAddCreditToExisting = async (customerId: number, amount: number) => {
+    try {
+      await recordManualPayment(customerId, -amount, 'credit', undefined, 'Manual credit added');
+      fetchAllCustomers();
+      setIsAddCreditToExistingOpen(false);
+    } catch (error) {
+      console.error('Failed to add credit:', error);
     }
   };
 
@@ -141,7 +167,7 @@ const Credits = () => {
 
   const handleSendMessage = (customer: any) => {
     setSelectedCustomer(customer);
-    setMessageText(`Dear ${customer.name}, your outstanding balance is PKR ${Math.abs(customer.currentBalance || 0).toLocaleString()}. Please settle your dues at your earliest convenience. Thank you!`);
+    setMessageText(`Dear ${customer.name}, your outstanding balance is PKR ${(customer.currentBalance || 0).toLocaleString()}. Please settle your dues at your earliest convenience. Thank you!`);
     setIsMessageModalOpen(true);
   };
 
@@ -174,8 +200,9 @@ const Credits = () => {
     return matchesSearch && matchesCustomer;
   });
 
-  // Calculate total credits (convert negative to positive for display)
-  const totalCredits = customersWithCredits.reduce((sum, customer) => sum + Math.abs(customer.currentBalance || 0), 0);
+  const totalCredits = customersWithCredits
+    .filter(c => (c.currentBalance || 0) < 0)
+    .reduce((sum, c) => sum + Math.abs(c.currentBalance || 0), 0);
 
   if (loading) {
     return (
@@ -204,11 +231,24 @@ const Credits = () => {
             <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
             Sync Balances
           </Button>
+          <Dialog open={isAddCreditToExistingOpen} onOpenChange={setIsAddCreditToExistingOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="bg-orange-50 hover:bg-orange-100 text-orange-600 border-orange-200">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Credit to Existing
+              </Button>
+            </DialogTrigger>
+            <AddCreditToExistingDialog 
+              customers={customers}
+              onSubmit={handleAddCreditToExisting}
+              onClose={() => setIsAddCreditToExistingOpen(false)}
+            />
+          </Dialog>
           <Dialog open={isAddCustomerOpen} onOpenChange={setIsAddCustomerOpen}>
             <DialogTrigger asChild>
               <Button className="bg-blue-600 hover:bg-blue-700">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Customer
+                Add New Customer
               </Button>
             </DialogTrigger>
             <CustomerDialog onSubmit={handleAddCustomer} onClose={() => setIsAddCustomerOpen(false)} />
@@ -327,7 +367,9 @@ const Credits = () => {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm text-muted-foreground">Outstanding</p>
-                      <p className="text-lg font-bold text-red-600">PKR {Math.abs(customer.currentBalance || 0).toLocaleString()}</p>
+                      <p className={`text-lg font-bold ${ (customer.currentBalance || 0) < 0 ? 'text-red-600' : 'text-green-600' }`}>
+                        PKR {Math.abs(customer.currentBalance || 0).toLocaleString()}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-4">
@@ -449,115 +491,261 @@ const Credits = () => {
   );
 };
 
-// Customer Dialog Component
+// Customer Dialog Component - Simplified to 3 fields only
 const CustomerDialog = ({ onSubmit, onClose }: { onSubmit: (data: any) => void; onClose: () => void }) => {
   const [formData, setFormData] = useState({
     name: "", 
     phone: "", 
-    email: "", 
-    address: "", 
-    city: "",
-    type: "Permanent",
-    creditLimit: ""
+    initialCredit: ""
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
-      ...formData,
-      creditLimit: parseFloat(formData.creditLimit) || 0
+      name: formData.name,
+      phone: formData.phone || "N/A",
+      type: "Temporary",
+      creditLimit: 0,
+      initialCredit: parseFloat(formData.initialCredit) || 0
     });
-    setFormData({ 
-      name: "", phone: "", email: "", address: "", city: "", type: "Permanent", creditLimit: "" 
-    });
+    setFormData({ name: "", phone: "", initialCredit: "" });
   };
 
   return (
-    <DialogContent className="max-w-2xl">
+    <DialogContent className="sm:max-w-md">
       <DialogHeader>
         <DialogTitle>Add New Customer</DialogTitle>
       </DialogHeader>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="name">Customer Name</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="phone">Phone Number</Label>
-            <Input
-              id="phone"
-              value={formData.phone}
-              onChange={(e) => setFormData({...formData, phone: e.target.value})}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-            />
-          </div>
-          <div>
-            <Label htmlFor="type">Customer Type</Label>
-            <Select value={formData.type} onValueChange={(value) => setFormData({...formData, type: value})}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Permanent">Permanent</SelectItem>
-                <SelectItem value="Semi-Permanent">Semi-Permanent</SelectItem>
-                <SelectItem value="Temporary">Temporary</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="city">City</Label>
-            <Input
-              id="city"
-              value={formData.city}
-              onChange={(e) => setFormData({...formData, city: e.target.value})}
-            />
-          </div>
-          <div>
-            <Label htmlFor="creditLimit">Credit Limit</Label>
-            <Input
-              id="creditLimit"
-              type="number"
-              value={formData.creditLimit}
-              onChange={(e) => setFormData({...formData, creditLimit: e.target.value})}
-            />
-          </div>
-        </div>
-
         <div>
-          <Label htmlFor="address">Address</Label>
+          <Label htmlFor="name">Customer Name *</Label>
           <Input
-            id="address"
-            value={formData.address}
-            onChange={(e) => setFormData({...formData, address: e.target.value})}
+            id="name"
+            value={formData.name}
+            onChange={(e) => setFormData({...formData, name: e.target.value})}
+            placeholder="Enter customer name"
+            required
+            autoFocus
+          />
+        </div>
+        
+        <div>
+          <Label htmlFor="phone">Phone Number</Label>
+          <Input
+            id="phone"
+            value={formData.phone}
+            onChange={(e) => setFormData({...formData, phone: e.target.value})}
+            placeholder="Enter phone number (optional)"
           />
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div>
+          <Label htmlFor="initialCredit">Initial Credit Amount</Label>
+          <Input
+            id="initialCredit"
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.initialCredit}
+            onChange={(e) => setFormData({...formData, initialCredit: e.target.value})}
+            placeholder="Enter initial credit (optional)"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
             Add Customer
+          </Button>
+        </div>
+      </form>
+    </DialogContent>
+  );
+};
+
+// Add Credit to Existing Customer Dialog - Simplified with Combobox
+const AddCreditToExistingDialog = ({ 
+  customers = [], 
+  onSubmit, 
+  onClose 
+}: { 
+  customers: any[]; 
+  onSubmit: (customerId: number, amount: number) => void;
+  onClose: () => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
+  const [amount, setAmount] = useState("");
+
+  // Ensure customers is always an array
+  const safeCustomers = Array.isArray(customers) ? customers : [];
+  const selectedCustomer = safeCustomers.find((c: any) => c.id === selectedCustomerId);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCustomerId || !amount) return;
+    onSubmit(selectedCustomerId, parseFloat(amount));
+    // Reset form
+    setSelectedCustomerId(null);
+    setAmount("");
+    setSearchQuery("");
+  };
+
+  return (
+    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle className="text-2xl">Add Credit to Existing Customer</DialogTitle>
+      </DialogHeader>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Customer Selection */}
+        <div className="space-y-2">
+          <Label className="text-base font-semibold">Select Customer *</Label>
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={open}
+                className="w-full justify-between h-auto min-h-[3rem] py-3"
+              >
+                {selectedCustomer ? (
+                  <div className="flex flex-col items-start gap-1 text-left">
+                    <span className="font-semibold">{selectedCustomer.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {selectedCustomer.phone} • Balance: PKR {(selectedCustomer.currentBalance || 0).toLocaleString()}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">Search and select customer...</span>
+                )}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[600px] p-0" align="start">
+              <Command shouldFilter={false}>
+                <CommandInput 
+                  placeholder="Type customer name or phone number..." 
+                  value={searchQuery}
+                  onValueChange={setSearchQuery}
+                  className="h-12"
+                />
+                <CommandList className="max-h-[400px]">
+                  <CommandEmpty>No customer found.</CommandEmpty>
+                  <CommandGroup>
+                    {safeCustomers
+                      .filter((customer: any) => {
+                        if (!searchQuery) return true;
+                        const query = searchQuery.toLowerCase();
+                        return (
+                          customer.name?.toLowerCase().includes(query) ||
+                          customer.phone?.toLowerCase().includes(query) ||
+                          customer.email?.toLowerCase().includes(query)
+                        );
+                      })
+                      .slice(0, 50) // Limit to 50 results for performance
+                      .map((customer: any) => (
+                        <CommandItem
+                          key={customer.id}
+                          value={customer.id.toString()}
+                          onSelect={() => {
+                            setSelectedCustomerId(customer.id);
+                            setOpen(false);
+                            setSearchQuery("");
+                          }}
+                          className="py-3 cursor-pointer"
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4 shrink-0",
+                              selectedCustomerId === customer.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <div className="flex flex-col gap-1 flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold">{customer.name}</span>
+                              <Badge variant={customer.currentBalance > 0 ? "destructive" : "secondary"}>
+                                PKR {(customer.currentBalance || 0).toLocaleString()}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              {customer.phone && (
+                                <span className="flex items-center gap-1">
+                                  <Phone className="h-3 w-3" />
+                                  {customer.phone}
+                                </span>
+                              )}
+                              {customer.email && (
+                                <span className="flex items-center gap-1">
+                                  <Mail className="h-3 w-3" />
+                                  {customer.email}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          {searchQuery && !open && (
+            <p className="text-xs text-muted-foreground">
+              Showing top 50 results. Keep typing to refine your search.
+            </p>
+          )}
+        </div>
+
+        {/* Selected Customer Info */}
+        {selectedCustomer && (
+          <div className="p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Current Outstanding Balance</p>
+                <p className="text-3xl font-bold text-red-600 dark:text-red-500 mt-1">
+                  PKR {(selectedCustomer.currentBalance || 0).toLocaleString()}
+                </p>
+              </div>
+              <AlertCircle className="h-10 w-10 text-red-500" />
+            </div>
+          </div>
+        )}
+
+        {/* Credit Amount */}
+        <div className="space-y-2">
+          <Label htmlFor="credit-amount" className="text-base font-semibold">Credit Amount *</Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">PKR</span>
+            <Input
+              id="credit-amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              className="pl-14 h-12 text-lg"
+              required
+            />
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <Button type="button" variant="outline" onClick={onClose} size="lg">
+            Cancel
+          </Button>
+          <Button 
+            type="submit" 
+            className="bg-orange-600 hover:bg-orange-700 min-w-[140px]" 
+            size="lg"
+            disabled={!selectedCustomerId || !amount}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Credit
           </Button>
         </div>
       </form>

@@ -61,7 +61,7 @@ const Orders = () => {
   const [isPDFExportModalOpen, setIsPDFExportModalOpen] = useState(false);
 
   // Items per page for server-side pagination
-  const ITEMS_PER_PAGE = 50;
+  const ITEMS_PER_PAGE = 20;
   // Cache full dataset for current filters during search to avoid repeated network calls
   const allSalesCacheRef = useRef<Sale[]>([]);
   const cacheKeyRef = useRef<string>("");
@@ -204,14 +204,39 @@ const Orders = () => {
         (sale.paymentMethod?.toLowerCase().includes(searchLower))
       );
 
+      // Relevance scoring: prioritize exact and prefix matches on customer name, then order number, then recency
+      const score = (s: Sale) => {
+        const name = (s.customerName || '').toLowerCase();
+        const order = (s.orderNumber || '').toLowerCase();
+        let sc = 0;
+        if (name === searchLower) sc += 1000;
+        if (name.startsWith(searchLower)) sc += 800;
+        if (name.includes(searchLower)) sc += 500;
+        if (order.startsWith(searchLower)) sc += 300;
+        if (order.includes(searchLower)) sc += 150;
+        // slight recency boost
+        const recency = new Date(s.createdAt || s.date).getTime() / 1e10; // small factor
+        sc += recency;
+        return sc;
+      };
+
+      const sortedByRelevance = filteredSales.sort((a, b) => {
+        const diff = score(b) - score(a);
+        if (diff !== 0) return diff;
+        // tie-breaker by newest first
+        const aTime = new Date(a.createdAt || a.date).getTime();
+        const bTime = new Date(b.createdAt || b.date).getTime();
+        return bTime - aTime;
+      });
+
       const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
       const endIndex = startIndex + ITEMS_PER_PAGE;
-      const paginatedSales = filteredSales.slice(startIndex, endIndex);
+      const paginatedSales = sortedByRelevance.slice(startIndex, endIndex);
 
       setOrders(paginatedSales);
-      setTotalPages(Math.max(1, Math.ceil(filteredSales.length / ITEMS_PER_PAGE)));
-      const totalSales = filteredSales.reduce((sum, s) => sum + s.total, 0);
-      setSummary({ totalSales, totalOrders: filteredSales.length, avgOrderValue: filteredSales.length ? totalSales / filteredSales.length : 0 });
+      setTotalPages(Math.max(1, Math.ceil(sortedByRelevance.length / ITEMS_PER_PAGE)));
+      const totalSales = sortedByRelevance.reduce((sum, s) => sum + s.total, 0);
+      setSummary({ totalSales, totalOrders: sortedByRelevance.length, avgOrderValue: sortedByRelevance.length ? totalSales / sortedByRelevance.length : 0 });
     } catch (error) {
       console.error('Error fetching orders:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to load orders data";
