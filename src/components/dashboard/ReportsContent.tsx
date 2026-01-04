@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -7,13 +7,17 @@ import {
   ShoppingCart, 
   TrendingUp,
   RefreshCw,
-  Calendar
+  Calendar,
+  BarChart3,
+  FolderOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { reportsApi } from "@/services/reportsApi";
+import { SalesOverviewTab } from "@/components/reports/SalesOverviewTab";
 import { TopProductsTab } from "@/components/reports/TopProductsTab";
 import { TopCustomersTab } from "@/components/reports/TopCustomersTab";
+import { CategoryPerformanceTab } from "@/components/reports/CategoryPerformanceTab";
 import { ProductSalesTab } from "@/components/reports/ProductSalesTab";
 import { CustomerPurchasesTab } from "@/components/reports/CustomerPurchasesTab";
 
@@ -45,42 +49,73 @@ const getYearOptions = () => {
 };
 
 export const ReportsContent = () => {
-  const [activeTab, setActiveTab] = useState("top-products");
+  const [activeTab, setActiveTab] = useState("overview");
   
-  // Default to current month
-  const currentDate = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+  // Default to December 2025 (where data exists) instead of current month
+  const [selectedMonth, setSelectedMonth] = useState(12);
+  const [selectedYear, setSelectedYear] = useState(2025);
+
+  // Fetch all report data
+  const { data: salesOverview = [], isLoading: loadingOverview, refetch: refetchOverview } = useQuery({
+    queryKey: ['monthly-sales-overview'],
+    queryFn: reportsApi.getMonthlySalesOverview,
+  });
 
   const { data: topProducts = [], isLoading: loadingTopProducts, refetch: refetchTopProducts } = useQuery({
-    queryKey: ['monthly-top-products', selectedYear, selectedMonth],
+    queryKey: ['monthly-top-products'],
     queryFn: reportsApi.getMonthlyTopProducts,
   });
 
   const { data: topCustomers = [], isLoading: loadingTopCustomers, refetch: refetchTopCustomers } = useQuery({
-    queryKey: ['monthly-top-customers', selectedYear, selectedMonth],
+    queryKey: ['monthly-top-customers'],
     queryFn: reportsApi.getMonthlyTopCustomers,
   });
 
+  const { data: categoryPerformance = [], isLoading: loadingCategories, refetch: refetchCategories } = useQuery({
+    queryKey: ['monthly-category-performance'],
+    queryFn: reportsApi.getMonthlyCategoryPerformance,
+  });
+
   const { data: productSales = [], isLoading: loadingProductSales, refetch: refetchProductSales } = useQuery({
-    queryKey: ['monthly-product-sales', selectedYear, selectedMonth],
+    queryKey: ['monthly-product-sales'],
     queryFn: reportsApi.getMonthlyProductSales,
   });
 
   const { data: customerPurchases = [], isLoading: loadingCustomerPurchases, refetch: refetchCustomerPurchases } = useQuery({
-    queryKey: ['monthly-customer-purchases', selectedYear, selectedMonth],
+    queryKey: ['monthly-customer-purchases'],
     queryFn: reportsApi.getMonthlyCustomerPurchases,
   });
 
+  // Auto-detect latest available month/year from data
+  useEffect(() => {
+    if (salesOverview.length > 0) {
+      const latest = salesOverview[0];
+      if (latest.year && latest.month) {
+        setSelectedYear(latest.year);
+        setSelectedMonth(latest.month);
+      }
+    } else if (topProducts.length > 0) {
+      const latest = topProducts[0];
+      if (latest.year && latest.month) {
+        setSelectedYear(latest.year);
+        setSelectedMonth(latest.month);
+      }
+    }
+  }, [salesOverview, topProducts]);
+
   // Filter data based on selected month/year
+  const filteredSalesOverview = salesOverview.filter(s => s.year === selectedYear && s.month === selectedMonth);
   const filteredTopProducts = topProducts.filter(p => p.year === selectedYear && p.month === selectedMonth);
   const filteredTopCustomers = topCustomers.filter(c => c.year === selectedYear && c.month === selectedMonth);
+  const filteredCategories = categoryPerformance.filter(c => c.year === selectedYear && c.month === selectedMonth);
   const filteredProductSales = productSales.filter(p => p.year === selectedYear && p.month === selectedMonth);
   const filteredCustomerPurchases = customerPurchases.filter(c => c.year === selectedYear && c.month === selectedMonth);
 
   const handleRefreshAll = () => {
+    refetchOverview();
     refetchTopProducts();
     refetchTopCustomers();
+    refetchCategories();
     refetchProductSales();
     refetchCustomerPurchases();
   };
@@ -128,31 +163,46 @@ export const ReportsContent = () => {
           </div>
           <Button onClick={handleRefreshAll} variant="outline" size="sm" className="gap-2">
             <RefreshCw className="h-4 w-4" />
-            Refresh All
+            Refresh
           </Button>
         </div>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto gap-1 bg-muted p-1">
-          <TabsTrigger value="top-products" className="gap-2 data-[state=active]:bg-background">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto gap-1 bg-muted p-1">
+          <TabsTrigger value="overview" className="gap-2 data-[state=active]:bg-background text-xs sm:text-sm">
+            <BarChart3 className="h-4 w-4" />
+            <span className="hidden sm:inline">Overview</span>
+          </TabsTrigger>
+          <TabsTrigger value="top-products" className="gap-2 data-[state=active]:bg-background text-xs sm:text-sm">
             <TrendingUp className="h-4 w-4" />
             <span className="hidden sm:inline">Top Products</span>
           </TabsTrigger>
-          <TabsTrigger value="top-customers" className="gap-2 data-[state=active]:bg-background">
+          <TabsTrigger value="top-customers" className="gap-2 data-[state=active]:bg-background text-xs sm:text-sm">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Top Customers</span>
           </TabsTrigger>
-          <TabsTrigger value="product-sales" className="gap-2 data-[state=active]:bg-background">
-            <Package className="h-4 w-4" />
-            <span className="hidden sm:inline">Product Sales</span>
+          <TabsTrigger value="categories" className="gap-2 data-[state=active]:bg-background text-xs sm:text-sm">
+            <FolderOpen className="h-4 w-4" />
+            <span className="hidden sm:inline">Categories</span>
           </TabsTrigger>
-          <TabsTrigger value="customer-purchases" className="gap-2 data-[state=active]:bg-background">
+          <TabsTrigger value="product-sales" className="gap-2 data-[state=active]:bg-background text-xs sm:text-sm">
+            <Package className="h-4 w-4" />
+            <span className="hidden sm:inline">Products</span>
+          </TabsTrigger>
+          <TabsTrigger value="customer-purchases" className="gap-2 data-[state=active]:bg-background text-xs sm:text-sm">
             <ShoppingCart className="h-4 w-4" />
-            <span className="hidden sm:inline">Customer Purchases</span>
+            <span className="hidden sm:inline">Customers</span>
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview" className="mt-6">
+          <SalesOverviewTab 
+            data={filteredSalesOverview} 
+            isLoading={loadingOverview} 
+          />
+        </TabsContent>
 
         <TabsContent value="top-products" className="mt-6">
           <TopProductsTab 
@@ -169,6 +219,13 @@ export const ReportsContent = () => {
             isLoading={loadingTopCustomers}
             monthLabel={monthLabel}
             year={selectedYear}
+          />
+        </TabsContent>
+
+        <TabsContent value="categories" className="mt-6">
+          <CategoryPerformanceTab 
+            data={filteredCategories} 
+            isLoading={loadingCategories} 
           />
         </TabsContent>
 
