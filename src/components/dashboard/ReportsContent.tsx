@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -55,61 +55,36 @@ export const ReportsContent = () => {
   const [selectedMonth, setSelectedMonth] = useState(12);
   const [selectedYear, setSelectedYear] = useState(2025);
 
-  // Fetch all report data
+  // Fetch report data with year/month parameters for server-side filtering
   const { data: salesOverview = [], isLoading: loadingOverview, refetch: refetchOverview } = useQuery({
-    queryKey: ['monthly-sales-overview'],
-    queryFn: reportsApi.getMonthlySalesOverview,
+    queryKey: ['monthly-sales-overview', selectedYear, selectedMonth],
+    queryFn: () => reportsApi.getMonthlySalesOverview({ year: selectedYear, month: selectedMonth }),
   });
 
   const { data: topProducts = [], isLoading: loadingTopProducts, refetch: refetchTopProducts } = useQuery({
-    queryKey: ['monthly-top-products'],
-    queryFn: reportsApi.getMonthlyTopProducts,
+    queryKey: ['monthly-top-products', selectedYear, selectedMonth],
+    queryFn: () => reportsApi.getMonthlyTopProducts({ year: selectedYear, month: selectedMonth }),
   });
 
   const { data: topCustomers = [], isLoading: loadingTopCustomers, refetch: refetchTopCustomers } = useQuery({
-    queryKey: ['monthly-top-customers'],
-    queryFn: reportsApi.getMonthlyTopCustomers,
+    queryKey: ['monthly-top-customers', selectedYear, selectedMonth],
+    queryFn: () => reportsApi.getMonthlyTopCustomers({ year: selectedYear, month: selectedMonth }),
   });
 
   const { data: categoryPerformance = [], isLoading: loadingCategories, refetch: refetchCategories } = useQuery({
-    queryKey: ['monthly-category-performance'],
-    queryFn: reportsApi.getMonthlyCategoryPerformance,
+    queryKey: ['monthly-category-performance', selectedYear, selectedMonth],
+    queryFn: () => reportsApi.getMonthlyCategoryPerformance({ year: selectedYear, month: selectedMonth }),
   });
 
   const { data: productSales = [], isLoading: loadingProductSales, refetch: refetchProductSales } = useQuery({
-    queryKey: ['monthly-product-sales'],
-    queryFn: reportsApi.getMonthlyProductSales,
+    queryKey: ['monthly-product-sales', selectedYear, selectedMonth],
+    queryFn: () => reportsApi.getMonthlyProductSales({ year: selectedYear, month: selectedMonth }),
   });
 
   const { data: customerPurchases = [], isLoading: loadingCustomerPurchases, refetch: refetchCustomerPurchases } = useQuery({
-    queryKey: ['monthly-customer-purchases'],
-    queryFn: reportsApi.getMonthlyCustomerPurchases,
+    queryKey: ['monthly-customer-purchases', selectedYear, selectedMonth],
+    queryFn: () => reportsApi.getMonthlyCustomerPurchases({ year: selectedYear, month: selectedMonth }),
   });
-
-  // Auto-detect latest available month/year from data
-  useEffect(() => {
-    if (salesOverview.length > 0) {
-      const latest = salesOverview[0];
-      if (latest.year && latest.month) {
-        setSelectedYear(latest.year);
-        setSelectedMonth(latest.month);
-      }
-    } else if (topProducts.length > 0) {
-      const latest = topProducts[0];
-      if (latest.year && latest.month) {
-        setSelectedYear(latest.year);
-        setSelectedMonth(latest.month);
-      }
-    }
-  }, [salesOverview, topProducts]);
-
-  // Filter data based on selected month/year
-  const filteredSalesOverview = salesOverview.filter(s => s.year === selectedYear && s.month === selectedMonth);
-  const filteredTopProducts = topProducts.filter(p => p.year === selectedYear && p.month === selectedMonth);
-  const filteredTopCustomers = topCustomers.filter(c => c.year === selectedYear && c.month === selectedMonth);
-  const filteredCategories = categoryPerformance.filter(c => c.year === selectedYear && c.month === selectedMonth);
-  const filteredProductSales = productSales.filter(p => p.year === selectedYear && p.month === selectedMonth);
-  const filteredCustomerPurchases = customerPurchases.filter(c => c.year === selectedYear && c.month === selectedMonth);
 
   const handleRefreshAll = () => {
     refetchOverview();
@@ -199,14 +174,14 @@ export const ReportsContent = () => {
 
         <TabsContent value="overview" className="mt-6">
           <SalesOverviewTab 
-            data={filteredSalesOverview} 
+            data={salesOverview} 
             isLoading={loadingOverview} 
           />
         </TabsContent>
 
         <TabsContent value="top-products" className="mt-6">
           <TopProductsTab 
-            data={filteredTopProducts} 
+            data={topProducts} 
             isLoading={loadingTopProducts} 
             monthLabel={monthLabel}
             year={selectedYear}
@@ -215,7 +190,7 @@ export const ReportsContent = () => {
 
         <TabsContent value="top-customers" className="mt-6">
           <TopCustomersTab 
-            data={filteredTopCustomers} 
+            data={topCustomers} 
             isLoading={loadingTopCustomers}
             monthLabel={monthLabel}
             year={selectedYear}
@@ -224,14 +199,14 @@ export const ReportsContent = () => {
 
         <TabsContent value="categories" className="mt-6">
           <CategoryPerformanceTab 
-            data={filteredCategories} 
+            data={categoryPerformance} 
             isLoading={loadingCategories} 
           />
         </TabsContent>
 
         <TabsContent value="product-sales" className="mt-6">
           <ProductSalesTab 
-            data={filteredProductSales} 
+            data={productSales} 
             isLoading={loadingProductSales}
             monthLabel={monthLabel}
             year={selectedYear}
@@ -240,7 +215,7 @@ export const ReportsContent = () => {
 
         <TabsContent value="customer-purchases" className="mt-6">
           <CustomerPurchasesTab 
-            data={filteredCustomerPurchases} 
+            data={customerPurchases} 
             isLoading={loadingCustomerPurchases}
             monthLabel={monthLabel}
             year={selectedYear}

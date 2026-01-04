@@ -215,44 +215,68 @@ export interface FinancialReport {
 }
 
 export const reportsApi = {
-  // New monthly report methods
-  getMonthlyProductSales: async (): Promise<MonthlyProductSale[]> => {
-    const response = await fetch(`${API_BASE_URL}/monthly-product-sales`);
+  // New monthly report methods with optional year/month filtering
+  getMonthlyProductSales: async (params?: { year?: number; month?: number }): Promise<MonthlyProductSale[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.year) queryParams.append('year', params.year.toString());
+    if (params?.month) queryParams.append('month', params.month.toString());
+    const queryString = queryParams.toString();
+    const response = await fetch(`${API_BASE_URL}/monthly-product-sales${queryString ? `?${queryString}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch monthly product sales');
     const data = await response.json();
     return data.success ? data.data : [];
   },
 
-  getMonthlyCustomerPurchases: async (): Promise<MonthlyCustomerPurchase[]> => {
-    const response = await fetch(`${API_BASE_URL}/monthly-customer-purchases`);
+  getMonthlyCustomerPurchases: async (params?: { year?: number; month?: number }): Promise<MonthlyCustomerPurchase[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.year) queryParams.append('year', params.year.toString());
+    if (params?.month) queryParams.append('month', params.month.toString());
+    const queryString = queryParams.toString();
+    const response = await fetch(`${API_BASE_URL}/monthly-customer-purchases${queryString ? `?${queryString}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch monthly customer purchases');
     const data = await response.json();
     return data.success ? data.data : [];
   },
 
-  getMonthlyTopProducts: async (): Promise<MonthlyTopProduct[]> => {
-    const response = await fetch(`${API_BASE_URL}/monthly-top-products`);
+  getMonthlyTopProducts: async (params?: { year?: number; month?: number }): Promise<MonthlyTopProduct[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.year) queryParams.append('year', params.year.toString());
+    if (params?.month) queryParams.append('month', params.month.toString());
+    const queryString = queryParams.toString();
+    const response = await fetch(`${API_BASE_URL}/monthly-top-products${queryString ? `?${queryString}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch monthly top products');
     const data = await response.json();
     return data.success ? data.data : [];
   },
 
-  getMonthlyTopCustomers: async (): Promise<MonthlyTopCustomer[]> => {
-    const response = await fetch(`${API_BASE_URL}/monthly-top-customers`);
+  getMonthlyTopCustomers: async (params?: { year?: number; month?: number }): Promise<MonthlyTopCustomer[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.year) queryParams.append('year', params.year.toString());
+    if (params?.month) queryParams.append('month', params.month.toString());
+    const queryString = queryParams.toString();
+    const response = await fetch(`${API_BASE_URL}/monthly-top-customers${queryString ? `?${queryString}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch monthly top customers');
     const data = await response.json();
     return data.success ? data.data : [];
   },
 
-  getMonthlyCategoryPerformance: async (): Promise<MonthlyCategoryPerformance[]> => {
-    const response = await fetch(`${API_BASE_URL}/monthly-category-performance`);
+  getMonthlyCategoryPerformance: async (params?: { year?: number; month?: number }): Promise<MonthlyCategoryPerformance[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.year) queryParams.append('year', params.year.toString());
+    if (params?.month) queryParams.append('month', params.month.toString());
+    const queryString = queryParams.toString();
+    const response = await fetch(`${API_BASE_URL}/monthly-category-performance${queryString ? `?${queryString}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch monthly category performance');
     const data = await response.json();
     return data.success ? data.data : [];
   },
 
-  getMonthlySalesOverview: async (): Promise<MonthlySalesOverview[]> => {
-    const response = await fetch(`${API_BASE_URL}/monthly-sales-overview`);
+  getMonthlySalesOverview: async (params?: { year?: number; month?: number }): Promise<MonthlySalesOverview[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.year) queryParams.append('year', params.year.toString());
+    if (params?.month) queryParams.append('month', params.month.toString());
+    const queryString = queryParams.toString();
+    const response = await fetch(`${API_BASE_URL}/monthly-sales-overview${queryString ? `?${queryString}` : ''}`);
     if (!response.ok) throw new Error('Failed to fetch monthly sales overview');
     const data = await response.json();
     return data.success ? data.data : [];
