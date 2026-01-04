@@ -23,33 +23,33 @@ const Reports = () => {
   const [activeTab, setActiveTab] = useState("overview");
 
   const { data: salesOverview = [], isLoading: loadingOverview, refetch: refetchOverview } = useQuery({
-    queryKey: ['monthly-sales-overview'],
-    queryFn: reportsApi.getMonthlySalesOverview,
+    queryKey: ['monthly-sales-overview-all'],
+    queryFn: () => reportsApi.getMonthlySalesOverview(),
   });
 
   const { data: topProducts = [], isLoading: loadingTopProducts, refetch: refetchTopProducts } = useQuery({
-    queryKey: ['monthly-top-products'],
-    queryFn: reportsApi.getMonthlyTopProducts,
+    queryKey: ['monthly-top-products-all'],
+    queryFn: () => reportsApi.getMonthlyTopProducts(),
   });
 
   const { data: topCustomers = [], isLoading: loadingTopCustomers, refetch: refetchTopCustomers } = useQuery({
-    queryKey: ['monthly-top-customers'],
-    queryFn: reportsApi.getMonthlyTopCustomers,
+    queryKey: ['monthly-top-customers-all'],
+    queryFn: () => reportsApi.getMonthlyTopCustomers(),
   });
 
   const { data: categoryPerformance = [], isLoading: loadingCategories, refetch: refetchCategories } = useQuery({
-    queryKey: ['monthly-category-performance'],
-    queryFn: reportsApi.getMonthlyCategoryPerformance,
+    queryKey: ['monthly-category-performance-all'],
+    queryFn: () => reportsApi.getMonthlyCategoryPerformance(),
   });
 
   const { data: productSales = [], isLoading: loadingProductSales, refetch: refetchProductSales } = useQuery({
-    queryKey: ['monthly-product-sales'],
-    queryFn: reportsApi.getMonthlyProductSales,
+    queryKey: ['monthly-product-sales-all'],
+    queryFn: () => reportsApi.getMonthlyProductSales(),
   });
 
   const { data: customerPurchases = [], isLoading: loadingCustomerPurchases, refetch: refetchCustomerPurchases } = useQuery({
-    queryKey: ['monthly-customer-purchases'],
-    queryFn: reportsApi.getMonthlyCustomerPurchases,
+    queryKey: ['monthly-customer-purchases-all'],
+    queryFn: () => reportsApi.getMonthlyCustomerPurchases(),
   });
 
   const handleRefreshAll = () => {
